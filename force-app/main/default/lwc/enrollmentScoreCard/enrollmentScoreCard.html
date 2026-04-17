@@ -1,0 +1,16 @@
+<template>
+    <template if:true={score}>
+        <div class="card">
+            <p>Score: {score.Score__c}</p>
+            <p>Action: {score.Recommended_Action__c}</p>
+            <p>Source: {score.Source_System__c}</p>
+            <p>Date: {score.Scored_At__c}</p>
+
+            <span class={badgeClass}>Priority</span>
+        </div>
+    </template>
+
+    <template if:false={score}>
+        <p>No enrollment score available yet</p>
+    </template>
+</template>
