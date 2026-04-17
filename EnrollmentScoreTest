@@ -1,0 +1,101 @@
+@isTest
+private class EnrollmentScoreTest {
+
+    @isTest
+    static void testAPI_Positive_Negative_Bulk() {
+
+        // 🔥 Disable contact trigger logic
+        TriggerControl.bypassContactTrigger = true;
+
+        // Create test contacts
+        List<Contact> contacts = new List<Contact>{
+            new Contact(LastName='Test1', Email='test1@mail.com'),
+            new Contact(LastName='Test2', Email='test2@mail.com')
+        };
+        insert contacts;
+
+        // Prepare request body
+        String body = JSON.serialize(new Map<String, Object>{
+            'scores' => new List<Object>{
+                new Map<String, Object>{
+                    'contactEmail' => 'test1@mail.com',
+                    'score' => 90,
+                    'recommendedAction' => 'Schedule Call',
+                    'sourceSystem' => 'EDMO',
+                    'scoredAt' => Datetime.now()
+                },
+                new Map<String, Object>{
+                    'contactEmail' => 'test2@mail.com',
+                    'score' => 50,
+                    'recommendedAction' => 'Send Info Pack',
+                    'sourceSystem' => 'EDMO',
+                    'scoredAt' => Datetime.now()
+                },
+                new Map<String, Object>{
+                    'contactEmail' => 'notfound@mail.com',
+                    'score' => 20,
+                    'recommendedAction' => 'Assign Counselor',
+                    'sourceSystem' => 'EDMO',
+                    'scoredAt' => Datetime.now()
+                }
+            }
+        });
+
+        // Mock REST request
+        RestRequest req = new RestRequest();
+        req.requestUri = '/services/apexrest/enrollment-scores/';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(body);
+
+        RestContext.request = req;
+        RestContext.response = new RestResponse();
+
+        Test.startTest();
+        List<EnrollmentScoreAPI.ResponseItem> res = EnrollmentScoreAPI.createScores();
+        Test.stopTest();
+
+        // Assertions
+        System.assertEquals(3, res.size());
+
+        Integer successCount = 0;
+        Integer failCount = 0;
+
+        for (EnrollmentScoreAPI.ResponseItem r : res) {
+            if (r.success) successCount++;
+            else failCount++;
+        }
+
+        System.assertEquals(2, successCount);
+        System.assertEquals(1, failCount);
+    }
+
+    @isTest
+    static void testTriggerPriorityUpdate() {
+
+        // 🔥 Disable duplicate trigger
+        TriggerControl.bypassContactTrigger = true;
+
+        Contact c = new Contact(LastName='Priority', Email='priority@mail.com');
+        insert c;
+
+        Enrollment_Score__c esc = new Enrollment_Score__c(
+            Contact__c = c.Id,
+            Score__c = 85,
+            Recommended_Action__c = 'Schedule Call',
+            Source_System__c = 'EDMO',
+            Scored_At__c = Datetime.now()
+        );
+
+        Test.startTest();
+        insert esc;
+        Test.stopTest();
+
+        Contact updated = [
+            SELECT Enrollment_Priority__c 
+            FROM Contact 
+            WHERE Id = :c.Id
+        ];
+
+        System.assertEquals('Hot', updated.Enrollment_Priority__c);
+    }
+}
